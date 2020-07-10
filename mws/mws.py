@@ -46,7 +46,6 @@ MARKETPLACES = {
     "UK" : "https://mws-eu.amazonservices.com", #A1F83G8C2ARO7P
     "JP" : "https://mws.amazonservices.jp", #A1VC38T7YXB528
     "CN" : "https://mws.amazonservices.com.cn", #AAHKV2X7AFYLW
-    "MX" : "https://mws.amazonservices.com.mx", #A1AM78C64UM0Y8
 }
 
 
@@ -142,11 +141,10 @@ class MWS(object):
     # Which is the name of the parameter for that specific account type.
     ACCOUNT_TYPE = "SellerId"
 
-    def __init__(self, access_key, secret_key, account_id, region='US', domain='', uri="", version="", auth_token=""):
+    def __init__(self, access_key, secret_key, account_id, region='US', domain='', uri="", version=""):
         self.access_key = access_key
         self.secret_key = secret_key
         self.account_id = account_id
-        self.auth_token = auth_token
         self.version = version or self.VERSION
         self.uri = uri or self.URI
 
@@ -177,8 +175,6 @@ class MWS(object):
             'Version': self.version,
             'SignatureMethod': 'HmacSHA256',
         }
-        if self.auth_token:
-            params['MWSAuthToken'] = self.auth_token
         params.update(extra_data)
         request_description = '&'.join(['%s=%s' % (k, urllib.quote(params[k], safe='-_.~').encode('utf-8')) for k in sorted(params)])
         signature = self.calc_signature(method, request_description)
@@ -206,7 +202,7 @@ class MWS(object):
                 parsed_response = DataWrapper(data, response.headers)
 
         except HTTPError, e:
-            error = MWSError(str(e.response.text))
+            error = MWSError(str(e))
             error.response = e.response
             raise error
 
@@ -398,9 +394,9 @@ class Reports(MWS):
 class Orders(MWS):
     """ Amazon Orders API """
 
-    URI = "/Orders/2013-09-01"
-    VERSION = "2013-09-01"
-    NS = '{https://mws.amazonservices.com/Orders/2013-09-01}'
+    URI = "/Orders/2011-01-01"
+    VERSION = "2011-01-01"
+    NS = '{https://mws.amazonservices.com/Orders/2011-01-01}'
 
     def list_orders(self, marketplaceids, created_after=None, created_before=None, lastupdatedafter=None,
                     lastupdatedbefore=None, orderstatus=(), fulfillment_channels=(),
@@ -466,16 +462,15 @@ class Products(MWS):
         data.update(self.enumerate_param('ASINList.ASIN.', asins))
         return self.make_request(data)
 
-    def get_matching_product_for_id(self, marketplaceid, type, ids):
+    def get_matching_product_for_id(self, marketplaceid, type, id):
         """ Returns a list of products and their attributes, based on a list of
-            product identifier values (ASIN, SellerSKU, UPC, EAN, ISBN, GCID  and JAN)
-            The identifier type is case sensitive.
+            product identifier values (asin, sellersku, upc, ean, isbn and JAN)
             Added in Fourth Release, API version 2011-10-01
         """
         data = dict(Action='GetMatchingProductForId',
                     MarketplaceId=marketplaceid,
                     IdType=type)
-        data.update(self.enumerate_param('IdList.Id.', ids))
+        data.update(self.enumerate_param('IdList.Id', id))
         return self.make_request(data)
 
     def get_competitive_pricing_for_sku(self, marketplaceid, skus):
@@ -508,22 +503,6 @@ class Products(MWS):
                     ItemCondition=condition,
                     ExcludeMe=excludeme)
         data.update(self.enumerate_param('ASINList.ASIN.', asins))
-        return self.make_request(data)
-
-    def get_lowest_priced_offers_for_sku(self, marketplaceid, sku, condition="New", excludeme="False"):
-        data = dict(Action='GetLowestPricedOffersForSKU',
-                    MarketplaceId=marketplaceid,
-                    SellerSKU=sku,
-                    ItemCondition=condition,
-                    ExcludeMe=excludeme)
-        return self.make_request(data)
-
-    def get_lowest_priced_offers_for_asin(self, marketplaceid, asin, condition="New", excludeme="False"):
-        data = dict(Action='GetLowestPricedOffersForASIN',
-                    MarketplaceId=marketplaceid,
-                    ASIN=asin,
-                    ItemCondition=condition,
-                    ExcludeMe=excludeme)
         return self.make_request(data)
 
     def get_product_categories_for_sku(self, marketplaceid, sku):
